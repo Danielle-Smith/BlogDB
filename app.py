@@ -23,6 +23,27 @@ class Post(db.Model):
     self.title = title
     self.content = content
 
+class Comment(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  user_id = db.Column(db.Integer)
+  post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
+  post = db.relationship('Post',
+        backref=db.backref('comments', lazy=True))
+
+  def __init__(self, user_id, post_id, post):
+    self.user_id = user_id
+    self.post_id = post_id
+    self.post = post
+  
+
+class User(db.Model):
+  id = db.Column(db.Integer, primary_key=True)
+  name = db.Column(db.String(25))
+
+  def __init__(self, name):
+    self.name = name
+  
+
 class PostSchema(ma.Schema):
   class Meta:
     fields = ("id", "title", "content")
@@ -81,4 +102,5 @@ def delete_post(id):
   return jsonify("RECORD DELETED")
 
 if __name__ == '__main__':
+  db.create_all()
   app.run(debug=True)
