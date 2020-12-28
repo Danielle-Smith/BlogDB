@@ -9,7 +9,6 @@ from flask_basicauth import BasicAuth
 from flask_bcrypt import Bcrypt
 from datetime import timedelta
 import marshmallow_sqlalchemy
-import requests
 import os 
 
 app = Flask(__name__)
@@ -86,10 +85,10 @@ def hello():
 def logged_in():
   print(session)
   if 'name' in session:
-    db_user: User.query.filter_by(name=session['name']).first()
+    db_user = User.query.filter_by(name=session['name']).first()
     print(db_user)
     if db_user: 
-      return jasonify('User Loggedin Via Cookie')
+      return jsonify('User Loggedin Via Cookie')
     else: 
       return jsonify('Session exists, but user does not exist (anymore)')
   else: 

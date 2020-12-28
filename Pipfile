@@ -13,6 +13,9 @@ flask-marshmallow = "*"
 marshmallow-sqlalchemy = "*"
 flask-admin = "*"
 flask-basicauth = "*"
+bcrypt = "*"
+flask-bcrypt = "*"
+python-dotenv = "*"
 
 [requires]
 python_version = "3.8"
