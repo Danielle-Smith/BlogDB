@@ -1,5 +1,4 @@
 from flask import Flask, session, request, jsonify
-# from flask_session import session
 from flask_admin import Admin
 from flask_sqlalchemy import SQLAlchemy  
 from flask_cors import CORS
