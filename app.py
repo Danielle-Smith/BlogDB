@@ -82,7 +82,6 @@ def hello():
   return "hello"
 
 
-
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
   print(session)
@@ -117,6 +116,11 @@ def login():
     session['name'] = post_data.get('name')
     return jsonify('User Verified')
   return jsonify('Password is not corret')
+
+@app.route('/logout', methods=['POST'])
+def logout():
+  session.clear()
+  return jsonify('Logged Out')
 
 
 @app.route('/register', methods=['POST'])
