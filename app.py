@@ -81,6 +81,8 @@ users_schema = UserSchema(many=True)
 def hello():
   return "hello"
 
+
+
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
   print(session)
@@ -93,6 +95,13 @@ def logged_in():
       return jsonify('Session exists, but user does not exist (anymore)')
   else: 
     return jsonify('nope')
+
+@app.route('/api/delete-user/<id>', methods=['DELETE'])
+def api_delete_user(id):
+  user = User.query.filter_by(id=id).first()
+  db.session.delete(user)
+  db.session.commit()
+  return jsonify('user deleted')
 
 @app.route('/login', methods=['POST'])
 def login():
