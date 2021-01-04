@@ -1,38 +1,45 @@
-from flask import Flask, session, request, jsonify
-from flask_admin import Admin
-from flask_sqlalchemy import SQLAlchemy  
-from flask_cors import CORS
-from flask_marshmallow import Marshmallow 
-from flask_admin.contrib.sqla import ModelView 
-from flask_basicauth import BasicAuth
-from flask_bcrypt import Bcrypt
+from flask import Flask, render_template, redirect, url_for, jsonify, request, session
+from flask_bootstrap import Bootstrap
+from flask_wtf import FlaskForm 
+from wtforms import StringField, PasswordField, BooleanField
+from wtforms.validators import InputRequired, Email, Length
+from flask_sqlalchemy  import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_marshmallow import Marshmallow
+from flask_admin import Admin, AdminIndexView
+from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
-import marshmallow_sqlalchemy
-import os 
+from flask_cors import CORS
+import os
 
 app = Flask(__name__)
-
+app.secret_key = os.environ.get('SECRET_KEY')
+app.permanent_session_lifetime = timedelta(minutes=5)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
-# app.config['BASIC_AUTH_FORCE'] = True
-# app.config['BASIC_AUTH_USERNAME'] = 'Danielle'
-# app.config['BASIC_AUTH_PASSWORD'] = 'password'
-# app.config['FLASK_ADMIN_SWATCH'] = 'cerulean'
+bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
-# basic_auth = BasicAuth(app)
-# admin = Admin(app)
-flask_bcrypt = Bcrypt(app)
-# admin.add_view(ModelView(User, db.session))
-# admin.add_view(ModelView(Post, db.session))
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+# app.config['FLASK_ADMIN_SWATCH'] = 'cerulean'
+
+# flask_bcrypt = Bcrypt(app)
+
+
 app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
 CORS(app, supports_credentials=True)
 
 
-CORS(app)
 
-class Post(db.Model):
+
+
+class Post(db.Model, UserMixin):
   id = db.Column(db.Integer, primary_key=True)
   title = db.Column(db.String(50))
   author = db.Column(db.String(25))
@@ -42,18 +49,43 @@ class Post(db.Model):
     self.title = title
     self.author = author
     self.content = content
+
   
-class User(db.Model):
+class User(db.Model, UserMixin):
   id = db.Column(db.Integer, primary_key=True)
-  name = db.Column(db.String(25))
-  password = db.Column(db.String(40))
+  username = db.Column(db.String(25), unique=True, nullable=False)
+  email = db.Column(db.String(50), unique=True)
+  password = db.Column(db.String(200), nullable=False)
  
 
-  def __init__(self, name, password):
-    self.name = name
+  def __init__(self, username, email, password):
+    self.username = username
+    self.email = email
     self.password = password
-  
-  
+
+class MyModelView(ModelView):
+  def is_accessible(self):
+    return current_user.is_authenticated
+
+  def inaccessible_callback(self, name, **kwargs):
+      return redirect(url_for('/login'))
+
+class MyAdminIndexView(AdminIndexView):
+  def is_accessible(self):
+    return current_user.is_authenticated
+
+  def inaccessible_callback(self, name, **kwargs):
+      return redirect(url_for('login'))
+
+    
+
+admin = Admin(app, index_view=MyAdminIndexView())
+# admin = Admin(app)
+admin.add_view(ModelView(User, db.session))
+admin.add_view(ModelView(Post, db.session))
+
+
+
 
 class PostSchema(ma.Schema):
   class Meta:
@@ -61,7 +93,7 @@ class PostSchema(ma.Schema):
 
 class UserSchema(ma.Schema):
   class Meta:
-    fields = ("id", "name", "password")
+    fields = ("id", "username", "email", "password")
 
 post_schema = PostSchema()
 posts_schema = PostSchema(many=True)
@@ -70,22 +102,29 @@ user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 
 
-# @app.route('/secret')
-# @basic_auth.required
-# def secret_view():
-#   return "login"
+@login_manager.user_loader
+def load_user(user_id):
+  return User.query.get(int(user_id))
+
+
+
+class LoginForm(FlaskForm):
+    username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
+    password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)])
+    remember = BooleanField('remember me')
+
+class RegisterForm(FlaskForm):
+    email = StringField('email', validators=[InputRequired(), Email(message='Invalid email'), Length(max=50)])
+    username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
+    password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
+
+
   
-
-@app.route("/")
-def hello():
-  return "hello"
-
-
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
   print(session)
-  if 'name' in session:
-    db_user = User.query.filter_by(name=session['name']).first()
+  if 'username' in session:
+    db_user = User.query.filter_by(username=session['username']).first()
     print(db_user)
     if db_user: 
       return jsonify('User Loggedin Via Cookie')
@@ -101,43 +140,50 @@ def api_delete_user(id):
   db.session.commit()
   return jsonify('user deleted')
 
-@app.route('/login', methods=['POST'])
-def login():
-  post_data = request.get_json()
-  db_user = User.query.filter_by(name=post_data.get('name')).first()
-  if db_user is None: 
-    return jsonify('Name NOT found')
-  password = post_data.get('password')
-  db_user_hashed_password = db_user.password
-  valid_password = flask_bcrypt.check_password_hash(db_user_hashed_password, password)
-  if valid_password:
-    session.permanent = True
-    session['name'] = post_data.get('name')
-    return jsonify('User Verified')
-  return jsonify('Password is not corret')
+# @app.route('/login', methods=['GET', 'POST'])
+# def login_get():
+#   request.authorization.name
+#   request.authorization.password
 
-@app.route('/logout', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user:
+            if check_password_hash(user.password, form.password.data):
+                login_user(user, remember=form.remember.data)
+                return redirect(url_for('user.details_view'))
+
+        return '<h1>Invalid username or password</h1>'
+        #return '<h1>' + form.username.data + ' ' + form.password.data + '</h1>'
+
+    return render_template('login.html', form=form)
+ 
+
+
+@app.route('/logout', methods=['GET', 'POST'])
 def logout():
+  logout_user()
   session.clear()
   return jsonify('Logged Out')
 
 
-@app.route('/register', methods=['POST'])
-def register():
-  post_data = request.get_json()
-  db_user = User.query.filter_by(name=post_data.get('name')).first()
-  if db_user:
-    return jsonify('Name taken')
-  name = post_data.get('name')
-  email = post_data.get('email')
-  password = post_data.get('password')
-  hashed_password = flask_bcrypt.generate_password_hash(password).decode('utf-8') 
-  new_user = User(name=name, password=hashed_password)
-  db.session.add(new_user)
-  db.session.commit()
-  session.permanent = True
-  session['name'] = post_data.get('name')
-  return jsonify("User Created!")
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    form = RegisterForm()
+
+    if form.validate_on_submit():
+        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+
+        return '<h1>New user has been created!</h1>'
+        #return '<h1>' + form.username.data + ' ' + form.email.data + ' ' + form.password.data + '</h1>'
+
+    return render_template('signup.html', form=form)
 
 
 # USERS
@@ -180,12 +226,11 @@ def get_users():
 def add_user():
   rqt = request.get_json(force=True)
 
-  name = rqt["name"]
-  email = rqt["email"]
+  username = rqt["username"]
   password = rqt["password"]
-  admin = rqt["admin"]
+  
 
-  record = User(name, email, password, admin)
+  record = User(username, password)
   db.session.add(record)
   db.session.commit()
 

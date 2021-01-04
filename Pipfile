@@ -16,6 +16,12 @@ flask-basicauth = "*"
 bcrypt = "*"
 flask-bcrypt = "*"
 python-dotenv = "*"
+wtforms = "*"
+flask-login = "*"
+flask-wtf = "*"
+flask-bootstrap = "*"
+werkzeug = "*"
+email-validator = "*"
 
 [requires]
 python_version = "3.8"
