@@ -11,31 +11,43 @@ from flask_admin import Admin, AdminIndexView
 from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
 from flask_cors import CORS
+from flask_mail import Mail, Message
+import smtplib, ssl
 import os
+
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
+app.config['MAIL_SERVER'] = "smtp.mail.yahoo.com"
+app.config["MAIL_PORT"] = 465
+app.config["MAIL_USE_SSL"] = True
+app.config["MAIL_USE_TLS"] = False
+app.config["MAIL_MAX_EMAILS"] = None
+app.config["MAIL_DEFAULT_SENDER"] = None
+app.config["MAIL_SUPPRESS_SEND"] = False
+app.config["MAIL_ASCII_ATTACHMENTS"] = False
+app.mail_username = os.environ.get('mail_username')
+app.mail_password = os.environ.get('mail_password')
+app.config["MAIL_USERNAME"] = app.mail_username
+app.config["MAIL_PASSWORD"] = app.mail_password
+
+
+
+
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-
-
-# app.config['FLASK_ADMIN_SWATCH'] = 'cerulean'
-
-# flask_bcrypt = Bcrypt(app)
-
-
-app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
-CORS(app, supports_credentials=True)
+CORS(app)
 
-
+mail = Mail(app)
 
 
 
@@ -63,6 +75,18 @@ class User(db.Model, UserMixin):
     self.email = email
     self.password = password
 
+class Contact(db.Model, UserMixin):
+  id = db.Column(db.Integer, primary_key=True)
+  name = db.Column(db.String(25))
+  email = db.Column(db.String(50))
+  message = db.Column(db.String(500))
+
+  def __init__(self, name, email, message):
+    self.name = name
+    self.email = email
+    self.message = message
+
+
 class MyModelView(ModelView):
   def is_accessible(self):
     return current_user.is_authenticated
@@ -78,13 +102,9 @@ class MyAdminIndexView(AdminIndexView):
       return redirect(url_for('login'))
 
     
-
 admin = Admin(app, index_view=MyAdminIndexView())
-# admin = Admin(app)
 admin.add_view(ModelView(User, db.session))
 admin.add_view(ModelView(Post, db.session))
-
-
 
 
 class PostSchema(ma.Schema):
@@ -95,17 +115,24 @@ class UserSchema(ma.Schema):
   class Meta:
     fields = ("id", "username", "email", "password")
 
+class ContactSchema(ma.Schema):
+  class Meta:
+    fields = ("id", "name", "email", "message")
+
 post_schema = PostSchema()
 posts_schema = PostSchema(many=True)
 
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 
+contact_schema = ContactSchema()
+contacts_schema = ContactSchema(many=True)
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
   return User.query.get(int(user_id))
-
 
 
 class LoginForm(FlaskForm):
@@ -118,8 +145,43 @@ class RegisterForm(FlaskForm):
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
 
+# class ContactForm(FlaskForm):
+#   username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
+#   email = StringField('email', validators=[InputRequired(), Email(message='Invalid email'), Length(max=50)])
+#   message = StringField('message', validators=[InputRequired(), Length(min=2, max=1000)])
 
+@app.route('/contact-form', methods=['GET', 'POST'])
+def contact_form():
+  # s = smtplib.SMTP('smtp.mail.yahoo.com', 465)
+  # s.ehlo()
+  # s.login(app.mail_username, app.mail_password)
+  rqt = request.get_json(force=True)
+
+  name = rqt["name"]
+  email = rqt["email"]
+  message = rqt['message']
+  record = Contact(name, email, message)
+  db.session.add(record)
+  db.session.commit()
+
+  # if request.method == "POST":
+  #   name = request.form.get("name")
+  #   email = request.form.get("email")
+  #   message = request.form.get("message")
+  msg = Message("message", sender='dani.dimo@yahoo.com', recipients=["danielle@natesdesign.com"])
+  mail.send(msg)
+   
+  return jsonify('contact form')
+
+    # name = request.form["name"]
+    # email = rqt["email"]
+    # message = rqt["message"]
+    # msg = Message(message, sender=email, recipients=["danielle@natesdesign.com"])
+ 
+    # mail.send(msg)
+    # return "Message sent"
   
+
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
   print(session)
@@ -140,10 +202,6 @@ def api_delete_user(id):
   db.session.commit()
   return jsonify('user deleted')
 
-# @app.route('/login', methods=['GET', 'POST'])
-# def login_get():
-#   request.authorization.name
-#   request.authorization.password
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -157,11 +215,9 @@ def login():
                 return redirect(url_for('user.details_view'))
 
         return '<h1>Invalid username or password</h1>'
-        #return '<h1>' + form.username.data + ' ' + form.password.data + '</h1>'
 
     return render_template('login.html', form=form)
  
-
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
@@ -181,7 +237,7 @@ def signup():
         db.session.commit()
 
         return '<h1>New user has been created!</h1>'
-        #return '<h1>' + form.username.data + ' ' + form.email.data + ' ' + form.password.data + '</h1>'
+        
 
     return render_template('signup.html', form=form)
 
