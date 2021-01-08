@@ -12,7 +12,8 @@ from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
 from flask_cors import CORS
 from flask_mail import Mail, Message
-# from flask.ext.wtf import Form, TextField, TextAreaField, SubmitField, validators, ValidationError
+import smtplib
+import socket
 import os
 
 
@@ -22,18 +23,13 @@ app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
-app.config['MAIL_SERVER'] = "smtp.mail.yahoo.com"
-app.config["MAIL_PORT"] = 465
-app.config["MAIL_USE_SSL"] = True
-app.config["MAIL_USE_TLS"] = False
-app.config["MAIL_MAX_EMAILS"] = None
-app.config["MAIL_DEFAULT_SENDER"] = None
-app.config["MAIL_SUPPRESS_SEND"] = False
-app.config["MAIL_ASCII_ATTACHMENTS"] = False
-app.mail_username = os.environ.get('mail_username')
-app.mail_password = os.environ.get('mail_password')
-app.config["MAIL_USERNAME"] = app.mail_username
-app.config["MAIL_PASSWORD"] = app.mail_password
+# app.config['MAIL_SERVER'] = "smtp.mail.yahoo.com"
+# app.config["MAIL_PORT"] = 465
+# app.config["MAIL_USE_SSL"] = True
+# # app.mail_username = os.environ.get('mail_username')
+# # app.mail_password = os.environ.get('mail_password')
+# app.config["MAIL_USERNAME"] = 'dani.dimo@yahoo.com'
+# app.config["MAIL_PASSWORD"] = 'DaniYahoo#1'
 
 
 
@@ -48,6 +44,7 @@ app.permanent_session_lifetime = timedelta(minutes=5)
 CORS(app)
 
 mail = Mail(app)
+socket.getdefaulttimeout()
 
 
 
@@ -145,25 +142,54 @@ class RegisterForm(FlaskForm):
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
 
-class ContactForm(Form):
-  name = TextField("Name",  [validators.Required("Please enter your name.")])
-  email = TextField("Email",  [validators.Required("Please enter your email address."), validators.Email("Please enter your email address.")])
-  message = TextAreaField("Message",  [validators.Required("Please enter a message.")])
+# class ContactForm(Form):
+#   name = TextField("Name",  [validators.Required("Please enter your name.")])
+#   email = TextField("Email",  [validators.Required("Please enter your email address."), validators.Email("Please enter your email address.")])
+#   message = TextAreaField("Message",  [validators.Required("Please enter a message.")])
 
-@app.route('/contact-form', methods=['POST'])
-def contact_form():
+class ContactForm(FlaskForm):
+  name = TextField("Name",  [validators.DataRequired("Please enter your name.")])
+  email = TextField("Email",  [validators.DataRequired("Please enter your email address."), validators.Email("Please enter your email address.")])
+  subject = TextField("Subject",  [validators.DataRequired("Please enter a subject.")])
+  message = TextAreaField("Message",  [validators.DataRequired("Please enter a message.")])
+  submit = SubmitField("Send")
+
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+  s = smtplib.SMTP('smtp.mail.yahoo.com', 465)
+  s.ehlo()
+  s.starttls()
+  s.login('dani.dimo@yahoo.com', 'DaniYahoo#1')
   form = ContactForm()
+ 
+  if request.method == 'POST':
+    if form.validate() == False:
+     
+      return render_template('contact.html', form=form)
+    else:
+      msg = Message(form.subject.data, sender='smtp.mail.yahoo.com', recipients=['danielle@natesdesign.com'])
+      msg.body = """
+      From: %s <%s>
+      %s
+      """ % (form.name.data, form.email.data, form.message.data)
+      mail.send(msg)
+ 
+      return 'Form posted.'
+ 
+  elif request.method == 'GET':
+    return render_template('contact.html', form=form)
+
  
   # if request.method == 'POST':
   #   if form.validate() == False:
   #     return ('All fields are required.')
       
   #   else:
-  msg = Message(form.message.data, sender='dani.dimo@yahoo.com', recipients=['danielle@natesdesign.com'])
+  # msg = Message(form.message.data, sender='dani.dimo@yahoo.com', recipients=['danielle@natesdesign.com'])
  
-  mail.send(msg)
+  # mail.send(msg)
 
-  return ('Form posted.')
+  # return ('Form posted.')
   # return("Didn't work")
  
   
