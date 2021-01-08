@@ -23,6 +23,7 @@ flask-bootstrap = "*"
 werkzeug = "*"
 email-validator = "*"
 flask-mail = "*"
+"flask.ext" = "*"
 
 [requires]
 python_version = "3.8"

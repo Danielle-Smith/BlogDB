@@ -1,7 +1,7 @@
-from flask import Flask, render_template, redirect, url_for, jsonify, request, session
+from flask import Flask, render_template, redirect, url_for, jsonify, request, session, flash
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm 
-from wtforms import StringField, PasswordField, BooleanField
+from wtforms import StringField, PasswordField, BooleanField, Form, TextField, TextAreaField, SubmitField, validators, ValidationError
 from wtforms.validators import InputRequired, Email, Length
 from flask_sqlalchemy  import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,7 +12,7 @@ from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
 from flask_cors import CORS
 from flask_mail import Mail, Message
-import smtplib, ssl
+# from flask.ext.wtf import Form, TextField, TextAreaField, SubmitField, validators, ValidationError
 import os
 
 
@@ -145,43 +145,28 @@ class RegisterForm(FlaskForm):
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
 
-# class ContactForm(FlaskForm):
-#   username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
-#   email = StringField('email', validators=[InputRequired(), Email(message='Invalid email'), Length(max=50)])
-#   message = StringField('message', validators=[InputRequired(), Length(min=2, max=1000)])
+class ContactForm(Form):
+  name = TextField("Name",  [validators.Required("Please enter your name.")])
+  email = TextField("Email",  [validators.Required("Please enter your email address."), validators.Email("Please enter your email address.")])
+  message = TextAreaField("Message",  [validators.Required("Please enter a message.")])
 
-@app.route('/contact-form', methods=['GET', 'POST'])
+@app.route('/contact-form', methods=['POST'])
 def contact_form():
-  # s = smtplib.SMTP('smtp.mail.yahoo.com', 465)
-  # s.ehlo()
-  # s.login(app.mail_username, app.mail_password)
-  rqt = request.get_json(force=True)
-
-  name = rqt["name"]
-  email = rqt["email"]
-  message = rqt['message']
-  record = Contact(name, email, message)
-  db.session.add(record)
-  db.session.commit()
-
-  # if request.method == "POST":
-  #   name = request.form.get("name")
-  #   email = request.form.get("email")
-  #   message = request.form.get("message")
-  msg = Message("message", sender='dani.dimo@yahoo.com', recipients=["danielle@natesdesign.com"])
-  mail.send(msg)
-   
-  return jsonify('contact form')
-
-    # name = request.form["name"]
-    # email = rqt["email"]
-    # message = rqt["message"]
-    # msg = Message(message, sender=email, recipients=["danielle@natesdesign.com"])
+  form = ContactForm()
  
-    # mail.send(msg)
-    # return "Message sent"
-  
+  # if request.method == 'POST':
+  #   if form.validate() == False:
+  #     return ('All fields are required.')
+      
+  #   else:
+  msg = Message(form.message.data, sender='dani.dimo@yahoo.com', recipients=['danielle@natesdesign.com'])
+ 
+  mail.send(msg)
 
+  return ('Form posted.')
+  # return("Didn't work")
+ 
+  
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
   print(session)
