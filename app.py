@@ -7,32 +7,17 @@ from flask_sqlalchemy  import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_marshmallow import Marshmallow
-from flask_admin import Admin, AdminIndexView
+from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
 from flask_cors import CORS
-from flask_mail import Mail, Message
-import smtplib
-import socket
 import os
-
-
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
-# app.config['MAIL_SERVER'] = "smtp.mail.yahoo.com"
-# app.config["MAIL_PORT"] = 465
-# app.config["MAIL_USE_SSL"] = True
-# # app.mail_username = os.environ.get('mail_username')
-# # app.mail_password = os.environ.get('mail_password')
-# app.config["MAIL_USERNAME"] = 'dani.dimo@yahoo.com'
-# app.config["MAIL_PASSWORD"] = 'DaniYahoo#1'
-
-
-
 
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
@@ -42,11 +27,6 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 app.permanent_session_lifetime = timedelta(minutes=5)
 CORS(app)
-
-mail = Mail(app)
-socket.getdefaulttimeout()
-
-
 
 class Post(db.Model, UserMixin):
   id = db.Column(db.Integer, primary_key=True)
@@ -83,7 +63,6 @@ class Contact(db.Model, UserMixin):
     self.email = email
     self.message = message
 
-
 class MyModelView(ModelView):
   def is_accessible(self):
     return current_user.is_authenticated
@@ -98,10 +77,21 @@ class MyAdminIndexView(AdminIndexView):
   def inaccessible_callback(self, name, **kwargs):
       return redirect(url_for('login'))
 
+class HomeView(BaseView):
+    @expose('/')
+    def index(self):
+        logout_user()
+        session.clear()
+        return ('Logout Successful - back to: <a href="http://127.0.0.1:3000">Blog</a>')
+
+
     
 admin = Admin(app, index_view=MyAdminIndexView())
 admin.add_view(ModelView(User, db.session))
 admin.add_view(ModelView(Post, db.session))
+admin.add_view(ModelView(Contact, db.session))
+admin.add_view(HomeView(name='Logout'))
+
 
 
 class PostSchema(ma.Schema):
@@ -142,56 +132,30 @@ class RegisterForm(FlaskForm):
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
 
-# class ContactForm(Form):
-#   name = TextField("Name",  [validators.Required("Please enter your name.")])
-#   email = TextField("Email",  [validators.Required("Please enter your email address."), validators.Email("Please enter your email address.")])
-#   message = TextAreaField("Message",  [validators.Required("Please enter a message.")])
+@app.route('/admin')
 
-class ContactForm(FlaskForm):
-  name = TextField("Name",  [validators.DataRequired("Please enter your name.")])
-  email = TextField("Email",  [validators.DataRequired("Please enter your email address."), validators.Email("Please enter your email address.")])
-  subject = TextField("Subject",  [validators.DataRequired("Please enter a subject.")])
-  message = TextAreaField("Message",  [validators.DataRequired("Please enter a message.")])
-  submit = SubmitField("Send")
+@app.route('/get-messages', methods=['GET'])
+@login_required
+def get_messages():
+  all_messages = Contact.query.all()
+  result = contacts_schema.dump(all_messages)
+  return jsonify(result)
 
-@app.route('/contact', methods=['GET', 'POST'])
-def contact():
-  s = smtplib.SMTP('smtp.mail.yahoo.com', 465)
-  s.ehlo()
-  s.starttls()
-  s.login('dani.dimo@yahoo.com', 'DaniYahoo#1')
-  form = ContactForm()
- 
+
+@app.route('/contact-form', methods=['POST'])
+def contact_form():
+
   if request.method == 'POST':
-    if form.validate() == False:
-     
-      return render_template('contact.html', form=form)
-    else:
-      msg = Message(form.subject.data, sender='smtp.mail.yahoo.com', recipients=['danielle@natesdesign.com'])
-      msg.body = """
-      From: %s <%s>
-      %s
-      """ % (form.name.data, form.email.data, form.message.data)
-      mail.send(msg)
- 
-      return 'Form posted.'
- 
-  elif request.method == 'GET':
-    return render_template('contact.html', form=form)
+    rqt = request.get_json(force=True)
 
- 
-  # if request.method == 'POST':
-  #   if form.validate() == False:
-  #     return ('All fields are required.')
-      
-  #   else:
-  # msg = Message(form.message.data, sender='dani.dimo@yahoo.com', recipients=['danielle@natesdesign.com'])
- 
-  # mail.send(msg)
-
-  # return ('Form posted.')
-  # return("Didn't work")
- 
+    name = rqt["name"]
+    email = rqt["email"]
+    message = rqt["message"]
+    
+    record = Contact(name, email, message)
+    db.session.add(record)
+    db.session.commit()
+    return jsonify("Message sent")
   
 @app.route('/logged-in', methods=['GET'])
 def logged_in():
@@ -283,6 +247,7 @@ def update_user(id):
   return user_schema.jsonify(user)
 
 @app.route("/users", methods=["GET"])
+@login_required
 def get_users():
   all_users = User.query.all()
   result = users_schema.dump(all_users)
@@ -303,6 +268,7 @@ def add_user():
 
   user = User.query.get(record.id)
   return user_schema.jsonify(user)
+
 
 
 # POSTS
