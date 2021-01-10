@@ -80,19 +80,16 @@ class MyAdminIndexView(AdminIndexView):
 class HomeView(BaseView):
     @expose('/')
     def index(self):
-        logout_user()
-        session.clear()
-        return ('Logout Successful - back to: <a href="http://127.0.0.1:3000">Blog</a>')
+      logout_user()
+      session.clear()
+      return ('Logout Successful - back to: <a href="http://127.0.0.1:3000">Blog</a>')
 
 
-    
 admin = Admin(app, index_view=MyAdminIndexView())
 admin.add_view(ModelView(User, db.session))
 admin.add_view(ModelView(Post, db.session))
 admin.add_view(ModelView(Contact, db.session))
 admin.add_view(HomeView(name='Logout'))
-
-
 
 class PostSchema(ma.Schema):
   class Meta:
@@ -116,7 +113,6 @@ contact_schema = ContactSchema()
 contacts_schema = ContactSchema(many=True)
 
 
-
 @login_manager.user_loader
 def load_user(user_id):
   return User.query.get(int(user_id))
@@ -125,14 +121,13 @@ def load_user(user_id):
 class LoginForm(FlaskForm):
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)])
-    remember = BooleanField('remember me')
+   
 
 class RegisterForm(FlaskForm):
     email = StringField('email', validators=[InputRequired(), Email(message='Invalid email'), Length(max=50)])
     username = StringField('username', validators=[InputRequired(), Length(min=3, max=15)])
     password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=80)]) 
 
-@app.route('/admin')
 
 @app.route('/get-messages', methods=['GET'])
 @login_required
@@ -186,7 +181,7 @@ def login():
         user = User.query.filter_by(username=form.username.data).first()
         if user:
             if check_password_hash(user.password, form.password.data):
-                login_user(user, remember=form.remember.data)
+                login_user(user)
                 return redirect(url_for('user.details_view'))
 
         return '<h1>Invalid username or password</h1>'
@@ -213,7 +208,6 @@ def signup():
 
         return '<h1>New user has been created!</h1>'
         
-
     return render_template('signup.html', form=form)
 
 
