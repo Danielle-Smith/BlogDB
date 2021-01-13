@@ -24,6 +24,7 @@ werkzeug = "*"
 email-validator = "*"
 flask-mail = "*"
 "flask.ext" = "*"
+gunicorn = "*"
 
 [requires]
 python_version = "3.8"
