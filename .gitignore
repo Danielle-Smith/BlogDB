@@ -1,3 +1,4 @@
-app.sqlite
+.sqlite
 pipfile
 pipfile.lock
+.env
