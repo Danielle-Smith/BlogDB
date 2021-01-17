@@ -82,7 +82,7 @@ class HomeView(BaseView):
     def index(self):
       logout_user()
       session.clear()
-      return ('Logout Successful - back to: <a href="http://127.0.0.1:3000">Blog</a>')
+      return ('Logout Successful - back to: <a href="https://dds-blog.herokuapp.com/">Blog</a>')
 
 
 admin = Admin(app, index_view=MyAdminIndexView())
