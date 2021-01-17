@@ -2,3 +2,4 @@ app.sqlite
 pipfile
 pipfile.lock
 .env
+procfile
