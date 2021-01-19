@@ -243,7 +243,7 @@ def update_user(id):
 
 @app.route("/users", methods=["GET"])
 @login_required
-def get_users()
+def get_users():
   all_users = User.query.all()
   result = users_schema.dump(all_users)
   return jsonify(result)
