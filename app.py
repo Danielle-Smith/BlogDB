@@ -11,14 +11,15 @@ from flask_admin import Admin, AdminIndexView, BaseView, expose
 from flask_admin.contrib.sqla import ModelView
 from datetime import timedelta
 from flask_cors import CORS
+import psycopg
 import os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 app.permanent_session_lifetime = timedelta(minutes=5)
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
-# app.config['SQLALCHEMY_DATABASE_URI'] = "postgres://chymryrdruqsku:4de0a2ebf0f410efd228328038d9abe0aae093fea31e16654d120a0d0b5ccdb7@ec2-3-213-192-58.compute-1.amazonaws.com:5432/dd31egolc6jqlm"
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
+app.config['SQLALCHEMY_DATABASE_URI'] = ""
 
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
@@ -322,4 +323,4 @@ def delete_post(id):
   return jsonify("POST DELETED")
 
 if __name__ == '__main__':
-  app.run(debug=True)
+  app.run()

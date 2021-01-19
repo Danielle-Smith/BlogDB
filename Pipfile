@@ -25,6 +25,7 @@ email-validator = "*"
 flask-mail = "*"
 "flask.ext" = "*"
 gunicorn = "*"
+psycopg2-binary = "*"
 
 [requires]
 python_version = "3.8"
